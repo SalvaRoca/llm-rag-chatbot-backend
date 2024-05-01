@@ -1,0 +1,10 @@
+flask
+python-dotenv
+torch
+langchain
+langchainhub
+huggingface-hub
+pypdf
+InstructorEmbedding
+sentence-transformers==2.2.2
+faiss-cpu
