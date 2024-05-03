@@ -37,7 +37,7 @@ def process_query():
     if rag_chain is None:
         abort(400, description="Model not loaded")
 
-    return rag_chain.invoke('<es>' + query)
+    return rag_chain.invoke(query)
 
 if __name__ == '__main__':
     app.run()

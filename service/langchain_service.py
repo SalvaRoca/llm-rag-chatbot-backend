@@ -6,7 +6,6 @@ from langchain_community.embeddings import HuggingFaceInstructEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain import hub
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
 
 
 def format_docs(docs):
@@ -50,12 +49,13 @@ def load_rag_chain(repo_id):
     vectorstore = FAISS.from_documents(documents=all_chunks, embedding=embeddings)
     retriever = vectorstore.as_retriever()
 
-    llm = HuggingFaceEndpoint(repo_id=repo_id, temperature=0.3)
+    llm = HuggingFaceEndpoint(repo_id=repo_id, temperature=0.4)
 
     prompt = hub.pull("rlm/rag-prompt")
 
     rag_chain = (
-            {"context": retriever | format_docs, "question": RunnablePassthrough()}
+            {"context": retriever | format_docs,
+             "question": lambda q: q + "(responde a esta petición en español sin incluir ninguna palabra en inglés)"}
             | prompt
             | llm
             | StrOutputParser()
