@@ -1,5 +1,5 @@
-from llama_index.core import SimpleDirectoryReader, PromptHelper
-from llama_index.core import Document
+import os
+from llama_index.core import SimpleDirectoryReader, Document, PromptHelper
 from llama_index.core.node_parser import SimpleNodeParser
 from llama_index.llms.huggingface import HuggingFaceInferenceAPI
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -8,65 +8,63 @@ from llama_index.core import VectorStoreIndex
 from llama_index.vector_stores.faiss import FaissVectorStore
 from llama_index.core import StorageContext
 import faiss
-import os
 from llama_index.core.text_splitter import SentenceSplitter
 from llama_index.core.callbacks import CallbackManager
 
-# Cargar documentos
-documents = SimpleDirectoryReader(input_files=["tema3.pdf"]).load_data()
 
-# Combinar documentos en uno solo
-doc_text = "\n\n".join([d.get_content() for d in documents])
-text = [Document(text=doc_text)]
-
-# Configuración del parser de nodos
-node_parser = SimpleNodeParser.from_defaults() # Default chunk size is 1024
-
-# Crear nodos a partir del texto
-base_nodes = node_parser.get_nodes_from_documents(text)
-
-# Reiniciar IDs de nodos
-for idx, node in enumerate(base_nodes):
-    node.id_ = f"node-{idx}"
-
-# Configuración del modelo de lenguaje
-hf_token = "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"
-os.environ["HF_TOKEN"] = hf_token
-Settings.embed_model = HuggingFaceEmbedding(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-)
-
-# Configuración del contexto del servicio
-llm = HuggingFaceInferenceAPI(model_name="mistralai/Mistral-7B-Instruct-v0.2", token=hf_token,    embedding_dim=1536
-)
-text_splitter = SentenceSplitter(chunk_size=1024, chunk_overlap=20)
-prompt_helper = PromptHelper(
-    context_window=4096,
-    num_output=256,
-    chunk_overlap_ratio=0.1,
-    chunk_size_limit=None,
-)
-
-# Configuración del índice vectorial
-d = 384
-faiss_index = faiss.IndexFlatL2(d)
-vector_store = FaissVectorStore(faiss_index=faiss_index)
-storage_context = StorageContext.from_defaults(vector_store=vector_store)
-callback_manager = CallbackManager()
-
-index = VectorStoreIndex.from_documents(
- documents, embed_model=Settings.embed_model, callback_manager=callback_manager
-)
+def format_docs(docs):
+    documents = SimpleDirectoryReader(input_files=docs).load_data()
+    doc_text = "\n\n".join([d.get_content() for d in documents])
+    return [Document(text=doc_text)]
 
 
-# Crear retriever
-retriever = index.as_retriever()
+def load_docs_from_folder(folder_path):
+    all_chunks = []
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.pdf'):
+            pdf_path = os.path.join(folder_path, filename)
+            documents = SimpleDirectoryReader(input_files=[pdf_path]).load_data()
+            doc_text = "\n\n".join([d.get_content() for d in documents])
+            text_splitter = SentenceSplitter(chunk_size=1024, chunk_overlap=20)
+            chunks = text_splitter.split(doc_text)
+            all_chunks.extend(chunks)
+    return all_chunks
 
-# Configuración del motor de consultas
-query_engine = index.as_query_engine(llm=llm)
 
-# Consulta
-response = query_engine.query("Respondeme en castellano: ¿De qué habla el texto en 20 lineas?")
-#response1 = llm.complete("Respondeme en castellano: En que consiste la IA ?")
+def load_rag_chain(repo_id, folder_path):
+    node_parser = SimpleNodeParser.from_defaults()
+    all_chunks = load_docs_from_folder(folder_path)
 
-print(str(response))
+    base_nodes = node_parser.get_nodes_from_documents(all_chunks)
+
+    for idx, node in enumerate(base_nodes):
+        node.id_ = f"node-{idx}"
+
+    Settings.embed_model = HuggingFaceEmbedding(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+
+    llm = HuggingFaceInferenceAPI(model_name=repo_id, embedding_dim=1536)
+    text_splitter = SentenceSplitter(chunk_size=1024, chunk_overlap=20)
+    prompt_helper = PromptHelper(
+        context_window=4096,
+        num_output=256,
+        chunk_overlap_ratio=0.1,
+        chunk_size_limit=None,
+    )
+
+    d = 384
+    faiss_index = faiss.IndexFlatL2(d)
+    vector_store = FaissVectorStore(faiss_index=faiss_index)
+    storage_context = StorageContext.from_defaults(vector_store=vector_store)
+    callback_manager = CallbackManager()
+
+    index = VectorStoreIndex.from_documents(
+        all_chunks, embed_model=Settings.embed_model, callback_manager=callback_manager
+    )
+
+    retriever = index.as_retriever()
+    query_engine = index.as_query_engine(llm=llm)
+    response = query_engine.query("Respondeme en castellano: ¿De qué habla el texto en 20 lineas?")
+
+    return response

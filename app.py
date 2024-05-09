@@ -1,6 +1,6 @@
 from flask import Flask, request, abort, g
 from service import langchain_service
-
+from service import llamaindex_service
 app = Flask(__name__)
 
 rag_chain = None
@@ -22,8 +22,8 @@ def load_model():
 
     if rag == 'langchain':
         rag_chain = langchain_service.load_rag_chain(repo_id)
-    # elif rag =='llamaindex':
-    #   llamaindex_service.load_rag_chain(repo_id)
+    elif rag =='llamaindex':
+       llamaindex_service.load_rag_chain(repo_id)
     else:
         abort(400, description="Invalid RAG parameter")
 
