@@ -5,7 +5,7 @@ from service import llamaindex_service
 app = Flask(__name__)
 
 rag_chain = None
-
+query_engine =None
 
 @app.route('/models', methods=['POST'])
 def load_model():
@@ -20,11 +20,11 @@ def load_model():
         abort(400, description="Invalid LLM parameter")
 
     global rag_chain
-
+    global query_engine
     if rag == 'langchain':
         rag_chain = langchain_service.load_rag_chain(repo_id)
     elif rag == 'llamaindex':
-        llamaindex_service.load_rag_chain(repo_id)
+        query_engine = llamaindex_service.load_rag_chain(repo_id)
     else:
         abort(400, description="Invalid RAG parameter")
 
@@ -34,12 +34,17 @@ def load_model():
 @app.route('/queries', methods=['POST'])
 def process_query():
     global rag_chain
-
+    global query_engine
     query = request.json['query']
-    if rag_chain is None:
-        abort(400, description="Model not loaded")
+    if rag_chain is not None:
+        return rag_chain.invoke(query)
+    if query_engine is not None:
+        response = query_engine.query("Respondeme en español a lo siguiente " + query)
+        response_str = str(response)
+        return response_str
+    abort(400, description="Model not loaded")
 
-    return rag_chain.invoke(query)
+
 
 
 if __name__ == '__main__':
