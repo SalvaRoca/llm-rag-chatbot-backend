@@ -6,5 +6,10 @@ langchainhub
 huggingface-hub
 pypdf
 InstructorEmbedding
-sentence-transformers==2.2.2
+sentence-transformers
 faiss-cpu
+llama-index
+llama_index.llms.huggingface
+llama-index-embeddings-huggingface
+llama-index-vector-stores-faiss
+huggingface
