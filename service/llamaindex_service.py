@@ -12,28 +12,30 @@ from llama_index.core.text_splitter import SentenceSplitter
 from llama_index.core.callbacks import CallbackManager
 
 
-def format_docs(docs):
-    documents = SimpleDirectoryReader(input_files=docs).load_data()
+def format_docs():
+    documents = SimpleDirectoryReader(input_files='/data'.load_data())
     doc_text = "\n\n".join([d.get_content() for d in documents])
     return [Document(text=doc_text)]
 
 
-def load_docs_from_folder(folder_path):
+def load_docs_from_folder():
     all_chunks = []
-    for filename in os.listdir(folder_path):
+    for filename in os.listdir('./data'):
         if filename.endswith('.pdf'):
-            pdf_path = os.path.join(folder_path, filename)
+            pdf_path = os.path.join('./data', filename)
             documents = SimpleDirectoryReader(input_files=[pdf_path]).load_data()
             doc_text = "\n\n".join([d.get_content() for d in documents])
             text_splitter = SentenceSplitter(chunk_size=1024, chunk_overlap=20)
-            chunks = text_splitter.split(doc_text)
-            all_chunks.extend(chunks)
+            chunks = text_splitter.split_text(doc_text)
+            for chunk in chunks:
+                all_chunks.append(Document(text=chunk))
     return all_chunks
 
 
-def load_rag_chain(repo_id, folder_path):
+
+def load_rag_chain(repo_id):
     node_parser = SimpleNodeParser.from_defaults()
-    all_chunks = load_docs_from_folder(folder_path)
+    all_chunks = load_docs_from_folder()
 
     base_nodes = node_parser.get_nodes_from_documents(all_chunks)
 
