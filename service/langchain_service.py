@@ -2,7 +2,7 @@ import os, dotenv
 from langchain_community.llms import HuggingFaceEndpoint
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceInstructEmbeddings
+from langchain_community.embeddings import HuggingFaceInstructEmbeddings, HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain import hub
 from langchain_core.output_parsers import StrOutputParser
@@ -43,19 +43,19 @@ def load_rag_chain(repo_id):
             # Agregar los chunks de texto a la lista
             all_chunks.extend(chunks)
 
-    embeddings = HuggingFaceInstructEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2",
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2",
                                                model_kwargs={'device': "cpu"})
 
     vectorstore = FAISS.from_documents(documents=all_chunks, embedding=embeddings)
     retriever = vectorstore.as_retriever()
-
-    llm = HuggingFaceEndpoint(repo_id=repo_id, temperature=0.4)
+    hf_token = os.getenv('HUGGINGFACEHUB_API_TOKEN')
+    llm = HuggingFaceEndpoint(repo_id=repo_id, temperature=0.4, huggingfacehub_api_token=hf_token)
 
     prompt = hub.pull("rlm/rag-prompt")
 
     rag_chain = (
             {"context": retriever | format_docs,
-             "question": lambda q: q + "(responde a esta petición en español sin incluir ninguna palabra en inglés)"}
+             "question": lambda q: q + "(Respóndeme solo en español, si no tiene que ver con los datos aportados, pues con la informaión que sepas y en español:)"}
             | prompt
             | llm
             | StrOutputParser()

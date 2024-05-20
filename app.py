@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 rag_chain = None
 query_engine =None
-
+memory = []
 @app.route('/models', methods=['POST'])
 def load_model():
     llm = request.args.get('llm')
@@ -31,21 +31,54 @@ def load_model():
     return 'Model loaded: ' + llm + '/' + rag
 
 
+
+
+
 @app.route('/queries', methods=['POST'])
 def process_query():
     global rag_chain
     global query_engine
     query = request.json['query']
     if rag_chain is not None:
-        return rag_chain.invoke(query)
+        response = process_query(query, query_engine)
+        return response
     if query_engine is not None:
-        response = query_engine.query("Respondeme en español a lo siguiente " + query)
+        #response = query_engine.query("Respóndeme, si no tiene que ver con los datos aportados, pues con la informaión que sepas y en español: " + query)
+        response = process_query(query, query_engine)
         response_str = str(response)
         return response_str
     abort(400, description="Model not loaded")
 
+def save_to_memory(user_input, bot_response):
+    """Guarda la conversación en la memoria."""
+    memory.append({"pregunta": user_input, "respuesta": bot_response})
+def get_last_conversation():
+    """Obtiene la última conversación de la memoria."""
+    if memory:
+        return memory[-1]
+    return None
+def process_query(query, query_engine):
+    global rag_chain
+    """Procesa la consulta del usuario y utiliza la memoria para proporcionar contexto."""
+    last_conversation = get_last_conversation()
+    if last_conversation:
+        user_input = last_conversation["pregunta"]
+        bot_response = last_conversation["respuesta"]
+        # Agregar contexto a la consulta actual
+        query = f"{bot_response}\n\n{query}"
 
+    # Procesar la consulta
+    if query_engine is not None:
+        response = query_engine.query("Respóndeme solo en español, si no tiene que ver con los datos aportados, pues con la informaión que sepas y en español: " + query)
 
+    else:
+        response = rag_chain.invoke(query)
+    # Guardar la conversación actual en la memoria
+    response_str = str(response)
+
+    save_to_memory(query, response_str)
+
+    return response_str
 
 if __name__ == '__main__':
     app.run()

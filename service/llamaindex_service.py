@@ -1,5 +1,5 @@
 import os
-from llama_index.core import SimpleDirectoryReader, Document, PromptHelper
+from llama_index.core import SimpleDirectoryReader, Document, PromptHelper, ServiceContext
 from llama_index.core.node_parser import SimpleNodeParser
 from llama_index.llms.huggingface import HuggingFaceInferenceAPI
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -47,26 +47,13 @@ def load_rag_chain(repo_id):
     )
 
     llm = HuggingFaceInferenceAPI(model_name=repo_id, embedding_dim=1536)
-    #text_splitter = SentenceSplitter(chunk_size=1024, chunk_overlap=20)
-    #prompt_helper = PromptHelper(
-    #    context_window=4096,
-    #    num_output=256,
-    #    chunk_overlap_ratio=0.1,
-    #    chunk_size_limit=None,
-    #)
+    service_context = ServiceContext.from_defaults(llm=llm, embed_model=Settings.embed_model)
 
     d = 384
     faiss_index = faiss.IndexFlatL2(d)
     vector_store = FaissVectorStore(faiss_index=faiss_index)
-    #storage_context = StorageContext.from_defaults(vector_store=vector_store)
     callback_manager = CallbackManager()
 
-    index = VectorStoreIndex.from_documents(
-        all_chunks, embed_model=Settings.embed_model, callback_manager=callback_manager
-    )
-
-    #retriever = index.as_retriever()
-    query_engine = index.as_query_engine(llm=llm)
-   # response = query_engine.query("Respondeme en castellano: ¿De qué habla el texto en 20 lineas?")
-
+    index = VectorStoreIndex.from_documents(all_chunks, service_context=service_context)
+    query_engine = index.as_query_engine(similarity_top_k=2)
     return query_engine
