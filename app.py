@@ -1,12 +1,40 @@
-from flask import Flask, request, abort, g
+import os
+from flask import Flask, request, abort
+from flask_cors import CORS
+from werkzeug.utils import secure_filename
 from service import langchain_service
 from service import llamaindex_service
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 
 rag_chain = None
 query_engine =None
 memory = []
+
+@app.route('/upload', methods=['POST'])
+def upload_files():
+    if 'files' not in request.files:
+        print('No file part')
+        abort(400, description="No file part")
+
+    files = request.files.getlist('files')
+
+    for file in files:
+        if file.filename == '':
+            print('No selected file')
+            abort(400, description="No selected file")
+
+        if file.content_type != 'application/pdf':
+            print('Invalid file type, only PDFs are allowed')
+            abort(400, description="Invalid file type, only PDFs are allowed")
+
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.root_path, 'data', filename))
+        print('File uploaded: ' + filename)
+
+    return "Files uploaded successfully", 200
+
 @app.route('/models', methods=['POST'])
 def load_model():
     llm = request.args.get('llm')
