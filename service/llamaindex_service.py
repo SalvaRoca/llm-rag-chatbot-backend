@@ -31,29 +31,18 @@ def load_docs_from_folder():
                 all_chunks.append(Document(text=chunk))
     return all_chunks
 
-
-
 def load_rag_chain(repo_id):
     node_parser = SimpleNodeParser.from_defaults()
     all_chunks = load_docs_from_folder()
-
     base_nodes = node_parser.get_nodes_from_documents(all_chunks)
-
     for idx, node in enumerate(base_nodes):
         node.id_ = f"node-{idx}"
-
     Settings.embed_model = HuggingFaceEmbedding(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
-
-    llm = HuggingFaceInferenceAPI(model_name=repo_id, embedding_dim=1536)
+    llm = HuggingFaceInferenceAPI(model_name=repo_id, embedding_dim=1536,context_window=3900,
+    max_new_tokens=256)
     service_context = ServiceContext.from_defaults(llm=llm, embed_model=Settings.embed_model)
-
-    d = 384
-    faiss_index = faiss.IndexFlatL2(d)
-    vector_store = FaissVectorStore(faiss_index=faiss_index)
-    callback_manager = CallbackManager()
-
     index = VectorStoreIndex.from_documents(all_chunks, service_context=service_context)
     query_engine = index.as_query_engine(similarity_top_k=2)
     return query_engine

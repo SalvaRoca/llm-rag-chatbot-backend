@@ -8,8 +8,9 @@ from service import llamaindex_service
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 
-rag_chain = None
-query_engine =None
+langchain_rag = None
+llamaindex_rag = None
+ultima_conversacion = None
 memory = []
 
 @app.route('/upload', methods=['POST'])
@@ -17,95 +18,57 @@ def upload_files():
     if 'files' not in request.files:
         print('No file part')
         abort(400, description="No file part")
-
     files = request.files.getlist('files')
-
     for file in files:
         if file.filename == '':
             print('No selected file')
             abort(400, description="No selected file")
-
         if file.content_type != 'application/pdf':
             print('Invalid file type, only PDFs are allowed')
             abort(400, description="Invalid file type, only PDFs are allowed")
-
         filename = secure_filename(file.filename)
         file.save(os.path.join(app.root_path, 'data', filename))
         print('File uploaded: ' + filename)
-
     return "Files uploaded successfully", 200
 
 @app.route('/models', methods=['POST'])
 def load_model():
+    global langchain_rag, llamaindex_rag
     llm = request.args.get('llm')
     rag = request.args.get('rag')
-
     if llm == 'mistral':
         repo_id = "mistralai/Mistral-7B-Instruct-v0.2"
     elif llm == 'llama':
         repo_id = "meta-llama/Meta-Llama-3-8B-Instruct"
     else:
         abort(400, description="Invalid LLM parameter")
-
-    global rag_chain
-    global query_engine
     if rag == 'langchain':
-        rag_chain = langchain_service.load_rag_chain(repo_id)
+        langchain_rag = langchain_service.load_rag_chain(repo_id)
     elif rag == 'llamaindex':
-        query_engine = llamaindex_service.load_rag_chain(repo_id)
+        llamaindex_rag = llamaindex_service.load_rag_chain(repo_id)
     else:
         abort(400, description="Invalid RAG parameter")
-
     return 'Model loaded: ' + llm + '/' + rag
-
-
-
-
 
 @app.route('/queries', methods=['POST'])
 def process_query():
-    global rag_chain
-    global query_engine
+    global langchain_rag, llamaindex_rag, user_input, bot_response, ultima_conversacion
     query = request.json['query']
-    if rag_chain is not None:
-        response = process_query(query, query_engine)
-        return response
-    if query_engine is not None:
-        #response = query_engine.query("Respóndeme, si no tiene que ver con los datos aportados, pues con la informaión que sepas y en español: " + query)
-        response = process_query(query, query_engine)
-        response_str = str(response)
-        return response_str
-    abort(400, description="Model not loaded")
-
-def save_to_memory(user_input, bot_response):
-    """Guarda la conversación en la memoria."""
-    memory.append({"pregunta": user_input, "respuesta": bot_response})
-def get_last_conversation():
-    """Obtiene la última conversación de la memoria."""
     if memory:
-        return memory[-1]
-    return None
-def process_query(query, query_engine):
-    global rag_chain
-    """Procesa la consulta del usuario y utiliza la memoria para proporcionar contexto."""
-    last_conversation = get_last_conversation()
-    if last_conversation:
-        user_input = last_conversation["pregunta"]
-        bot_response = last_conversation["respuesta"]
-        # Agregar contexto a la consulta actual
-        query = f"{bot_response}\n\n{query}"
-
-    # Procesar la consulta
-    if query_engine is not None:
-        response = query_engine.query("Respóndeme solo en español, si no tiene que ver con los datos aportados, pues con la informaión que sepas y en español: " + query)
-
+        ultima_conversacion = memory[-1]
+    if ultima_conversacion is not None:
+        user_input = ultima_conversacion["pregunta"]
+        bot_response = ultima_conversacion["respuesta"]
+        query = f"Respóndeme solo en español: {query}"
+    if llamaindex_rag is not None:
+        response = llamaindex_rag.query(
+            "Respóndeme solo en español, si no tiene que ver con los datos aportados, pues con la informaión que sepas y en español las líneas que necesites: " + query)
+    elif langchain_rag is not None:
+        response = langchain_rag.invoke(query)
     else:
-        response = rag_chain.invoke(query)
-    # Guardar la conversación actual en la memoria
+        abort(400, description="Model not loaded")
     response_str = str(response)
-
-    save_to_memory(query, response_str)
-
+    memory.append({"pregunta": query, "respuesta": response})
     return response_str
 
 if __name__ == '__main__':
