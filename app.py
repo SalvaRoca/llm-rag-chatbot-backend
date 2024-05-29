@@ -8,8 +8,7 @@ from service import llamaindex_service
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 
-langchain_rag = None
-llamaindex_rag = None
+rag_chain = None
 ultima_conversacion = None
 memory = []
 
@@ -31,9 +30,10 @@ def upload_files():
         print('File uploaded: ' + filename)
     return "Files uploaded successfully", 200
 
+
 @app.route('/models', methods=['POST'])
 def load_model():
-    global langchain_rag, llamaindex_rag
+    global rag_chain
     llm = request.args.get('llm')
     rag = request.args.get('rag')
     if llm == 'mistral':
@@ -43,33 +43,23 @@ def load_model():
     else:
         abort(400, description="Invalid LLM parameter")
     if rag == 'langchain':
-        langchain_rag = langchain_service.load_rag_chain(repo_id)
+        rag_chain = langchain_service.load_rag_chain(repo_id)
     elif rag == 'llamaindex':
-        llamaindex_rag = llamaindex_service.load_rag_chain(repo_id)
+        rag_chain = llamaindex_service.load_rag_chain(repo_id)
     else:
         abort(400, description="Invalid RAG parameter")
     return 'Model loaded: ' + llm + '/' + rag
 
+
 @app.route('/queries', methods=['POST'])
 def process_query():
-    global langchain_rag, llamaindex_rag, user_input, bot_response, ultima_conversacion
+    global rag_chain
     query = request.json['query']
-    if memory:
-        ultima_conversacion = memory[-1]
-    if ultima_conversacion is not None:
-        user_input = ultima_conversacion["pregunta"]
-        bot_response = ultima_conversacion["respuesta"]
-        query = f"Respóndeme solo en español: {query}"
-    if llamaindex_rag is not None:
-        response = llamaindex_rag.query(
-            "Respóndeme solo en español, si no tiene que ver con los datos aportados, pues con la informaión que sepas y en español las líneas que necesites: " + query)
-    elif langchain_rag is not None:
-        response = langchain_rag.invoke(query)
+    if rag_chain is not None:
+        response = rag_chain.ask(query)
     else:
         abort(400, description="Model not loaded")
-    response_str = str(response)
-    memory.append({"pregunta": query, "respuesta": response})
-    return response_str
+    return str(response)
 
 if __name__ == '__main__':
     app.run()

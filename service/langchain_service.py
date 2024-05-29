@@ -1,11 +1,14 @@
 import os, dotenv
+
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.chains.retrieval import create_retrieval_chain
 from langchain_community.llms import HuggingFaceEndpoint
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import CharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceInstructEmbeddings, HuggingFaceEmbeddings
+from langchain_core.prompts import PromptTemplate
+from langchain_text_splitters import TokenTextSplitter
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain import hub
-from langchain_core.output_parsers import StrOutputParser
+from .rag_chain_interface import RagChainInterface
 
 
 def format_docs(docs):
@@ -15,50 +18,49 @@ def format_docs(docs):
 def load_rag_chain(repo_id):
     dotenv.load_dotenv()
 
-    # Definir el objeto TextSplitter
-    text_splitter = CharacterTextSplitter(
-        separator="\n\n",
+    documents = []
+
+    text_splitter = TokenTextSplitter(
         chunk_size=1000,
         chunk_overlap=200,
-        length_function=len,
-        is_separator_regex=False,
     )
 
-    # Lista para almacenar los chunks de texto de todos los archivos PDF
-    all_chunks = []
-
-    # Iterar a través de cada archivo en la carpeta 'data'
     for filename in os.listdir('data'):
-        # Verificar si el archivo es un PDF
         if filename.endswith('.pdf'):
-            # Construir la ruta relativa del archivo PDF
             pdf_path = os.path.join('data', filename)
-
-            # Cargar el archivo PDF
             loader = PyPDFLoader(pdf_path)
-
-            # Dividir el archivo PDF en chunks de texto
             chunks = loader.load_and_split(text_splitter=text_splitter)
-
-            # Agregar los chunks de texto a la lista
-            all_chunks.extend(chunks)
+            documents.extend(chunks)
 
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2",
                                                model_kwargs={'device': "cpu"})
-
-    vectorstore = FAISS.from_documents(documents=all_chunks, embedding=embeddings)
+    vectorstore = FAISS.from_documents(documents=documents, embedding=embeddings)
     retriever = vectorstore.as_retriever()
-    hf_token = os.getenv('HUGGINGFACEHUB_API_TOKEN')
-    llm = HuggingFaceEndpoint(repo_id=repo_id, temperature=0.4, huggingfacehub_api_token=hf_token)
-
-    prompt = hub.pull("rlm/rag-prompt")
-
-    rag_chain = (
-            {"context": retriever | format_docs,
-             "question": lambda q: q + "(Respóndeme solo en español, si no tiene que ver con los datos aportados, pues con la informaión que sepas y en español:)"}
-            | prompt
-            | llm
-            | StrOutputParser()
+    llm = HuggingFaceEndpoint(
+        repo_id=repo_id,
+        temperature=0.4,
     )
 
-    return rag_chain
+    prompt = (
+        """
+        Sólo puedes responder en español. Utiliza el contexto proporcionado para responder a la pregunta. 
+        Si la respuesta no se encuentra en el contexto, intenta responderla con tus propios conocimientos. 
+        Si no sabes la respuesta, di que no lo sabes.
+        \n\n
+        {context}
+        \n
+        Pregunta: {input}
+        \n
+        Respuesta:
+        """
+    )
+
+    prompt_template = PromptTemplate(
+        input_variables=["context", "input"],
+        template=prompt,
+    )
+
+    question_answer_chain = create_stuff_documents_chain(llm, prompt_template)
+    rag_chain = create_retrieval_chain(retriever, question_answer_chain)
+
+    return RagChainInterface(rag_chain)
