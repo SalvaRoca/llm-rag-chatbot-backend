@@ -9,11 +9,9 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 
 rag_chain = None
-ultima_conversacion = None
-memory = []
 
-@app.route('/upload', methods=['POST'])
-def upload_files():
+@app.route('/models', methods=['POST'])
+def load_model():
     if 'files' not in request.files:
         print('No file part')
         abort(400, description="No file part")
@@ -28,11 +26,7 @@ def upload_files():
         filename = secure_filename(file.filename)
         file.save(os.path.join(app.root_path, 'data', filename))
         print('File uploaded: ' + filename)
-    return "Files uploaded successfully", 200
 
-
-@app.route('/models', methods=['POST'])
-def load_model():
     global rag_chain
     llm = request.args.get('llm')
     rag = request.args.get('rag')
@@ -48,6 +42,12 @@ def load_model():
         rag_chain = llamaindex_service.load_rag_chain(repo_id)
     else:
         abort(400, description="Invalid RAG parameter")
+    for filename in os.listdir('data'):
+        file_path = os.path.join('data', filename)
+        try:
+            os.unlink(file_path)
+        except Exception as e:
+            print(e)
     return 'Model loaded: ' + llm + '/' + rag
 
 
