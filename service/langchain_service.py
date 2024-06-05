@@ -11,10 +11,6 @@ from langchain_community.vectorstores import FAISS
 from .rag_chain_interface import RagChainInterface
 
 
-def format_docs(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
-
-
 def load_rag_chain(repo_id):
     dotenv.load_dotenv()
 
