@@ -10,6 +10,7 @@ CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 
 rag_chain = None
 
+
 @app.route('/models', methods=['POST'])
 def load_model():
     if 'files' not in request.files:
@@ -44,10 +45,11 @@ def load_model():
         abort(400, description="Invalid RAG parameter")
     for filename in os.listdir('data'):
         file_path = os.path.join('data', filename)
-        try:
-            os.unlink(file_path)
-        except Exception as e:
-            print(e)
+        if filename != ".gitkeep":
+            try:
+                os.unlink(file_path)
+            except Exception as e:
+                print(e)
     return 'Model loaded: ' + llm + '/' + rag
 
 
@@ -60,6 +62,7 @@ def process_query():
     else:
         abort(400, description="Model not loaded")
     return str(response)
+
 
 if __name__ == '__main__':
     app.run()
