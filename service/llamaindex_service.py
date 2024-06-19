@@ -1,5 +1,6 @@
 import os, dotenv
 
+from langchain_huggingface import HuggingFaceEndpoint
 from llama_index.core import (
     SimpleDirectoryReader,
     Document,
@@ -15,6 +16,14 @@ from llama_index.core.text_splitter import TokenTextSplitter
 import faiss
 from .rag_chain_interface import RagChainInterface
 
+
+def load_model(model_name):
+    # Cargar el modelo LLM usando HuggingFaceEndpoint
+    llm = HuggingFaceEndpoint(
+        repo_id=model_name,
+        temperature=0.4,
+    )
+    return llm
 
 def load_rag_chain(repo_id):
     dotenv.load_dotenv()

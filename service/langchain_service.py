@@ -1,4 +1,5 @@
-import os, dotenv
+import os
+import dotenv
 
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains.retrieval import create_retrieval_chain
@@ -11,9 +12,17 @@ from langchain_community.vectorstores import FAISS
 from .rag_chain_interface import RagChainInterface
 
 
-def load_rag_chain(repo_id):
-    dotenv.load_dotenv()
+dotenv.load_dotenv()
 
+def load_model(model_name):
+    # Cargar el modelo LLM usando HuggingFaceEndpoint
+    llm = HuggingFaceEndpoint(
+        repo_id=model_name,
+        temperature=0.4,
+    )
+    return llm
+
+def load_rag_chain(llm):
     documents = []
 
     text_splitter = TokenTextSplitter(
@@ -29,13 +38,9 @@ def load_rag_chain(repo_id):
             documents.extend(chunks)
 
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2",
-                                               model_kwargs={'device': "cpu"})
+                                       model_kwargs={'device': "cpu"})
     vectorstore = FAISS.from_documents(documents=documents, embedding=embeddings)
     retriever = vectorstore.as_retriever()
-    llm = HuggingFaceEndpoint(
-        repo_id=repo_id,
-        temperature=0.4,
-    )
 
     prompt = (
         """
