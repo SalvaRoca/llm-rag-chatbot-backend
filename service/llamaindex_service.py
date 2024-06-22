@@ -1,6 +1,5 @@
 import os, dotenv
 
-from langchain_huggingface import HuggingFaceEndpoint
 from llama_index.core import (
     SimpleDirectoryReader,
     Document,
@@ -16,14 +15,6 @@ from llama_index.core.text_splitter import TokenTextSplitter
 import faiss
 from .rag_chain_interface import RagChainInterface
 
-
-def load_model(model_name):
-    # Cargar el modelo LLM usando HuggingFaceEndpoint
-    llm = HuggingFaceEndpoint(
-        repo_id=model_name,
-        temperature=0.4,
-    )
-    return llm
 
 def load_rag_chain(repo_id):
     dotenv.load_dotenv()
@@ -49,7 +40,14 @@ def load_rag_chain(repo_id):
 
     llm = HuggingFaceInferenceAPI(
         model_name=repo_id,
-        temperature=0.4,
+        generate_kwargs={
+            "temperature": 0.4,
+            "max_length": 512,
+            "top_p": 0.95,
+            "repetition_penalty": 1.05,
+            "length_penalty": 1.3,
+            "use_cache": False
+        }
     )
 
     service_context = ServiceContext.from_defaults(llm=llm, embed_model=embed_model)
@@ -60,9 +58,12 @@ def load_rag_chain(repo_id):
 
     prompt = (
         """
-        Sólo puedes responder en español. Utiliza el contexto proporcionado para responder a la pregunta: {query_str}
-        \n\n
+        Contexto:
         {context_str}
+        \n
+        Debes responder sólo a la siguiente pregunta en español: {query_str}
+        \n
+        Escribe tu respuesta a continuación:
         """
     )
 
@@ -70,8 +71,9 @@ def load_rag_chain(repo_id):
         (
             "system",
             """ 
-            Si la respuesta no se encuentra en el contexto, intenta responderla con tus propios conocimientos. 
-            Si no sabes la respuesta, di que no lo sabes.
+            Sólo puedes responder en español. Utiliza el contexto proporcionado para responder a la pregunta.
+            Si la respuesta no se encuentra en el contexto, intenta responderla con tus propios conocimientos
+            descartando la información del contexto. Si no sabes la respuesta, di que no lo sabes.
             """
         ),
         ("user", prompt),

@@ -1,5 +1,4 @@
-import os
-import dotenv
+import os, dotenv
 
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains.retrieval import create_retrieval_chain
@@ -12,17 +11,9 @@ from langchain_community.vectorstores import FAISS
 from .rag_chain_interface import RagChainInterface
 
 
-dotenv.load_dotenv()
+def load_rag_chain(repo_id):
+    dotenv.load_dotenv()
 
-def load_model(model_name):
-    # Cargar el modelo LLM usando HuggingFaceEndpoint
-    llm = HuggingFaceEndpoint(
-        repo_id=model_name,
-        temperature=0.4,
-    )
-    return llm
-
-def load_rag_chain(llm):
     documents = []
 
     text_splitter = TokenTextSplitter(
@@ -37,27 +28,41 @@ def load_rag_chain(llm):
             chunks = loader.load_and_split(text_splitter=text_splitter)
             documents.extend(chunks)
 
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2",
-                                       model_kwargs={'device': "cpu"})
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     vectorstore = FAISS.from_documents(documents=documents, embedding=embeddings)
     retriever = vectorstore.as_retriever()
 
+    llm = HuggingFaceEndpoint(
+        repo_id=repo_id,
+        temperature=0.4,
+        top_p=0.95,
+        repetition_penalty=1.05,
+        cache=False,
+        model_kwargs={
+            "length_penalty": 1.3
+        }
+    )
+
     prompt = (
         """
-        Sólo puedes responder en español. Utiliza el contexto proporcionado para responder a la pregunta. 
-        Si la respuesta no se encuentra en el contexto, intenta responderla con tus propios conocimientos. 
-        Si no sabes la respuesta, di que no lo sabes.
-        \n\n
+        Utiliza el contexto proporcionado para responder a la pregunta. 
+        Si la respuesta no se encuentra en el contexto, intenta responderla con tus propios conocimientos descartando la
+        información del contexto. Si no sabes la respuesta, di que no lo sabes. 
+        \n
+        Contexto:
         {context}
         \n
-        Pregunta: {input}
+        Historial de la conversación (tú eres el Bot):
+        {history}
         \n
-        Respuesta:
+        Debes responder sólo a la siguiente pregunta en español: {input}
+        \n
+        Escribe tu respuesta a continuación:
         """
     )
 
     prompt_template = PromptTemplate(
-        input_variables=["context", "input"],
+        input_variables=["context", "input", "history"],
         template=prompt,
     )
 
@@ -65,3 +70,4 @@ def load_rag_chain(llm):
     rag_chain = create_retrieval_chain(retriever, question_answer_chain)
 
     return RagChainInterface(rag_chain)
+
