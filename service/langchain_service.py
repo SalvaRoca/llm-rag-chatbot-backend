@@ -11,7 +11,7 @@ from langchain_community.vectorstores import FAISS
 from .rag_chain_interface import RagChainInterface
 
 
-def load_rag_chain(repo_id):
+def load_rag_chain(llm_ref):
     dotenv.load_dotenv()
 
     documents = []
@@ -32,33 +32,45 @@ def load_rag_chain(repo_id):
     vectorstore = FAISS.from_documents(documents=documents, embedding=embeddings)
     retriever = vectorstore.as_retriever()
 
+    if llm_ref == 'mistral':
+        repo_id = "mistralai/Mistral-7B-Instruct-v0.2"
+        prompt = (
+            """
+            [INST]Utilizando la siguiente información de contexto: {context}
+            Y teniendo en cuenta el historial de la conversación en el que yo soy el Usuario: {history}
+            Responde en español a la siguiente petición. Si la pregunta no está relacionada con el contexto o la 
+            respuesta a la misma no se encuentra en el contexto, respóndela con tus propios conocimientos ignorando el 
+            contexto: {input} 
+            Responde a partir de aquí en español y usando notación Markdown:[/INST]
+            """
+        )
+    else:
+        repo_id = "meta-llama/Meta-Llama-3-8B-Instruct"
+        prompt = (
+            """
+            <|begin_of_text|><|start_header_id|>system<|end_header_id|>
+            Utilizando la siguiente información de contexto: {context}
+            Y teniendo en cuenta el historial de la conversación en el que yo soy el Usuario: {history}
+            Responde en español a la siguiente petición. Si la pregunta no está relacionada con el contexto o la 
+            respuesta a la misma no se encuentra en el contexto, respóndela con tus propios conocimientos ignorando el 
+            contexto:
+            <|start_header_id|>user<|end_header_id|>
+            {input} 
+            Responde a partir de aquí en español y usando notación Markdown:
+            <|start_header_id|>assistant<|end_header_id|>
+            """
+        )
+
     llm = HuggingFaceEndpoint(
         repo_id=repo_id,
-        temperature=0.4,
+        max_length=512,
+        temperature=0.35,
         top_p=0.95,
-        repetition_penalty=1.05,
+        repetition_penalty=1.2,
         cache=False,
         model_kwargs={
             "length_penalty": 1.3
         }
-    )
-
-    prompt = (
-        """
-        Utiliza el contexto proporcionado para responder a la pregunta. 
-        Si la respuesta no se encuentra en el contexto, intenta responderla con tus propios conocimientos descartando la
-        información del contexto. Si no sabes la respuesta, di que no lo sabes. 
-        \n
-        Contexto:
-        {context}
-        \n
-        Historial de la conversación (tú eres el Bot):
-        {history}
-        \n
-        Debes responder sólo a la siguiente pregunta en español: {input}
-        \n
-        Escribe tu respuesta a continuación:
-        """
     )
 
     prompt_template = PromptTemplate(
@@ -70,4 +82,3 @@ def load_rag_chain(repo_id):
     rag_chain = create_retrieval_chain(retriever, question_answer_chain)
 
     return RagChainInterface(rag_chain)
-

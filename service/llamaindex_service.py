@@ -16,7 +16,7 @@ import faiss
 from .rag_chain_interface import RagChainInterface
 
 
-def load_rag_chain(repo_id):
+def load_rag_chain(llm_ref):
     dotenv.load_dotenv()
 
     documents = []
@@ -38,13 +38,17 @@ def load_rag_chain(repo_id):
 
     embed_model = HuggingFaceEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
+    if llm_ref == 'mistral':
+        repo_id = "mistralai/Mistral-7B-Instruct-v0.2"
+    else:
+        repo_id = "meta-llama/Meta-Llama-3-8B-Instruct"
+
     llm = HuggingFaceInferenceAPI(
         model_name=repo_id,
         generate_kwargs={
-            "temperature": 0.4,
-            "max_length": 512,
+            "temperature": 0.35,
             "top_p": 0.95,
-            "repetition_penalty": 1.05,
+            "repetition_penalty": 1.2,
             "length_penalty": 1.3,
             "use_cache": False
         }
@@ -56,30 +60,20 @@ def load_rag_chain(repo_id):
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
     index = VectorStoreIndex.from_documents(documents, storage_context=storage_context, service_context=service_context)
 
-    prompt = (
-        """
-        Contexto:
-        {context_str}
-        \n
-        Debes responder sólo a la siguiente pregunta en español: {query_str}
-        \n
-        Escribe tu respuesta a continuación:
-        """
-    )
-
-    chat_text_qa_msgs = [
+    prompt = [
         (
             "system",
             """ 
-            Sólo puedes responder en español. Utiliza el contexto proporcionado para responder a la pregunta.
-            Si la respuesta no se encuentra en el contexto, intenta responderla con tus propios conocimientos
-            descartando la información del contexto. Si no sabes la respuesta, di que no lo sabes.
+            Utilizando la siguiente información de contexto: {context_str}
             """
         ),
-        ("user", prompt),
+        (
+            "user",
+            "{query_str}"
+        ),
     ]
 
-    text_qa_template = ChatPromptTemplate.from_messages(chat_text_qa_msgs)
+    text_qa_template = ChatPromptTemplate.from_messages(prompt)
 
     rag_chain = index.as_query_engine(similarity_top_k=2, text_qa_template=text_qa_template)
 

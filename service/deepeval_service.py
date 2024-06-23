@@ -1,20 +1,23 @@
 import dotenv, json
+from deepeval.metrics.ragas import RagasMetric
 from langchain_core.prompt_values import PromptValue
 from langchain_community.llms import HuggingFaceEndpoint
 from deepeval.models.base_model import DeepEvalBaseLLM
-from deepeval.metrics import GEval, SummarizationMetric, AnswerRelevancyMetric, FaithfulnessMetric
+from deepeval.metrics import (GEval, SummarizationMetric, AnswerRelevancyMetric, FaithfulnessMetric,
+                              HallucinationMetric, BiasMetric,
+                              ToxicityMetric)
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 
 
 class CustomLLM(DeepEvalBaseLLM):
     def __init__(self):
         self.load_model()
-        self.model_name = "Mistral-7B-Instruct-v0.3"
+        self.model_name = "Mistral-7B-Instruct-v0.2"
 
     def load_model(self):
         dotenv.load_dotenv()
         self.model = HuggingFaceEndpoint(
-            repo_id="mistralai/Mistral-7B-Instruct-v0.3",
+            repo_id="mistralai/Mistral-7B-Instruct-v0.2",
             temperature=0.4,
         )
 
@@ -91,33 +94,36 @@ def evaluate_response(query, response, retrieval_context):
         model=model
     )
 
-    summarization_metric = SummarizationMetric(
-        model=model
+    bias_metric = BiasMetric(
+        model=model,
+        include_reason=False
     )
 
-    answer_relevancy_metric = AnswerRelevancyMetric(
-        model=model
-    )
-
-    faithfulness_metric = FaithfulnessMetric(
-        model=model
+    toxicity_metric = ToxicityMetric(
+        model=model,
+        include_reason=False
     )
 
     # Crear el caso de prueba
     test_case = LLMTestCase(
         input=query,
         actual_output=response,
-        retrieval_context=retrieval_context
+        retrieval_context=retrieval_context,
+        expected_output=""
     )
 
     try:
         # Evaluar el caso de prueba con las métricas
-        correctness_metric.measure(test_case)
-        clarity_metric.measure(test_case)
-        integrity_metric.measure(test_case)
+        # correctness_metric.measure(test_case)
+        # clarity_metric.measure(test_case)
+        # integrity_metric.measure(test_case)
         # summarization_metric.measure(test_case)
         # answer_relevancy_metric.measure(test_case)
         # faithfulness_metric.measure(test_case)
+        # hallucination_metric.measure(test_case)
+        bias_metric.measure(test_case)
+        toxicity_metric.measure(test_case)
+
     except json.JSONDecodeError as e:
         return {
             'error': 'JSONDecodeError',
@@ -130,10 +136,13 @@ def evaluate_response(query, response, retrieval_context):
         }
 
     return {
-        'correctness_score': correctness_metric.score,
-        'clarity_score': clarity_metric.score,
-        'integrity_score': integrity_metric.score,
+        # 'correctness_score': correctness_metric.score,
+        # 'clarity_score': clarity_metric.score,
+        # 'integrity_score': integrity_metric.score,
         # 'summarization_score': summarization_metric.score,
         # 'answer_relevancy_score': answer_relevancy_metric.score,
         # 'faithfulness_score': faithfulness_metric.score
+        # 'hallucination_score': hallucination_metric.score,
+        'bias_score': bias_metric.score,
+        'toxicity_score': toxicity_metric.score
     }

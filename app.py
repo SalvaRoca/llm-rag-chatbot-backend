@@ -34,16 +34,12 @@ def load_model():
     llm = request.args.get('llm')
     rag = request.args.get('rag')
 
-    if llm == 'mistral':
-        model_path = "mistralai/Mistral-7B-Instruct-v0.3"
-    elif llm == 'llama':
-        model_path = "meta-llama/Meta-Llama-3-8B-Instruct"
-    else:
+    if llm != 'mistral' and llm != 'llama':
         return jsonify({'error': 'Invalid LLM parameter'}), 400
     if rag == 'langchain':
-        rag_chain = langchain_service.load_rag_chain(model_path)
+        rag_chain = langchain_service.load_rag_chain(llm)
     elif rag == 'llamaindex':
-        rag_chain = llamaindex_service.load_rag_chain(model_path)
+        rag_chain = llamaindex_service.load_rag_chain(llm)
     else:
         return jsonify({'error': 'Invalid RAG parameter'}), 400
     for filename in os.listdir('data'):
@@ -78,7 +74,9 @@ def process_query():
         response = rag_chain.ask(query, messages)
     else:
         return jsonify({'error': 'Model not loaded'}), 400
-    return str(response)
+    print(type(response))
+    print(response)
+    return response
 
 
 if __name__ == '__main__':

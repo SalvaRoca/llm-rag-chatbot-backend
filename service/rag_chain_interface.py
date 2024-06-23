@@ -1,4 +1,4 @@
-from  .deepeval_service import evaluate_response
+from .deepeval_service import evaluate_response
 
 
 class RagChainInterface:
@@ -9,11 +9,11 @@ class RagChainInterface:
         if hasattr(self.rag_chain, 'query'):
             history = "\n".join([f"{msg['author']}: {msg['text']}" for msg in messages])
             query = f"""
-                Historial de la conversación (tú eres el Bot): {history}
-                \n
-                Debes responder sólo a la siguiente pregunta: {query}
-                \n
-                Escribe tu respuesta a continuación:
+                Y teniendo en cuenta el historial de la conversación en el que yo soy el Usuario: {history}
+                Responde en español a la siguiente petición. Si la pregunta no está relacionada con el contexto o la 
+                respuesta a la misma no se encuentra en el contexto, respóndela con tus propios conocimientos ignorando 
+                el contexto: {query}
+                Responde a partir de aquí en español y usando notación Markdown:
                 """
             response_object = self.rag_chain.query(query)
             answer = response_object.response
