@@ -74,8 +74,6 @@ def process_query():
         response = rag_chain.ask(query, messages)
     else:
         return jsonify({'error': 'Model not loaded'}), 400
-    print(type(response))
-    print(response)
     return response
 
 

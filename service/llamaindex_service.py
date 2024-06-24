@@ -43,16 +43,7 @@ def load_rag_chain(llm_ref):
     else:
         repo_id = "meta-llama/Meta-Llama-3-8B-Instruct"
 
-    llm = HuggingFaceInferenceAPI(
-        model_name=repo_id,
-        generate_kwargs={
-            "temperature": 0.35,
-            "top_p": 0.95,
-            "repetition_penalty": 1.2,
-            "length_penalty": 1.3,
-            "use_cache": False
-        }
-    )
+    llm = HuggingFaceInferenceAPI(model_name=repo_id)
 
     service_context = ServiceContext.from_defaults(llm=llm, embed_model=embed_model)
 

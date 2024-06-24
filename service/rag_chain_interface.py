@@ -1,6 +1,3 @@
-from .deepeval_service import evaluate_response
-
-
 class RagChainInterface:
     def __init__(self, rag_chain):
         self.rag_chain = rag_chain
@@ -17,17 +14,11 @@ class RagChainInterface:
                 """
             response_object = self.rag_chain.query(query)
             answer = response_object.response
-            retrieval_context = [node.get_content() for node in response_object.source_nodes]
-            evaluation_results = evaluate_response(query, answer, retrieval_context)
-            print(evaluation_results)
             return answer
 
         elif hasattr(self.rag_chain, 'invoke'):
-            response = self.rag_chain.invoke({"input": query, "history": messages})
-            answer = response['answer']
-            retrieval_context = [doc.page_content for doc in response['context']]
-            evaluation_results = evaluate_response(query, answer, retrieval_context)
-            print(evaluation_results)
+            response_object = self.rag_chain.invoke({"input": query, "history": messages})
+            answer = response_object['answer']
             return answer
 
         else:
