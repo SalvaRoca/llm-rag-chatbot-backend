@@ -6,7 +6,14 @@ from service import langchain_service
 from service import llamaindex_service
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
+cors = CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "http://localhost:3000",
+            "https://llm-rag-chatbot-frontend.vercel.app"
+        ]
+    }
+})
 
 llm = ""
 rag = ""
