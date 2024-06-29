@@ -58,9 +58,7 @@ def load_model():
                 os.unlink(file_path)
             except Exception as e:
                 print(e)
-    response = 'Model loaded: ' + llm + '/' + rag
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    return response
+    return 'Model loaded: ' + llm + '/' + rag
 
 
 @app.route('/models', methods=['GET'])
