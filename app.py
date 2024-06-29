@@ -11,7 +11,9 @@ cors = CORS(app, resources={
         "origins": [
             "http://localhost:3000",
             "https://llm-rag-chatbot-frontend.vercel.app"
-        ]
+        ],
+        "methods": ["GET", "POST", "OPTIONS", "HEAD"],
+        "allow_headers": ["Content-Type"]
     }
 })
 
