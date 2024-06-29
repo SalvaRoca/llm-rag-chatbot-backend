@@ -11,7 +11,9 @@ cors = CORS(app, resources={
         "origins": [
             "http://localhost:3000",
             "https://llm-rag-chatbot-frontend.vercel.app"
-        ]
+        ],
+        "methods": ["GET", "POST", "OPTIONS", "HEAD"],
+        "allow_headers": ["Content-Type"]
     }
 })
 
@@ -56,7 +58,9 @@ def load_model():
                 os.unlink(file_path)
             except Exception as e:
                 print(e)
-    return 'Model loaded: ' + llm + '/' + rag
+    response = 'Model loaded: ' + llm + '/' + rag
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 
 @app.route('/models', methods=['GET'])
