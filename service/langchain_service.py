@@ -33,7 +33,7 @@ def load_rag_chain(llm_ref):
     retriever = vectorstore.as_retriever()
 
     if llm_ref == 'mistral':
-        repo_id = "mistralai/Mistral-7B-Instruct-v0.2"
+        repo_id = "mistralai/Mistral-7B-Instruct-v0.3"
         prompt = (
             """
             [INST]Utilizando la siguiente información de contexto: {context}

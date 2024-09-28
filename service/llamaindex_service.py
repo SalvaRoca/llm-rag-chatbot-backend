@@ -39,7 +39,7 @@ def load_rag_chain(llm_ref):
     embed_model = HuggingFaceEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
     if llm_ref == 'mistral':
-        repo_id = "mistralai/Mistral-7B-Instruct-v0.2"
+        repo_id = "mistralai/Mistral-7B-Instruct-v0.3"
     else:
         repo_id = "meta-llama/Meta-Llama-3-8B-Instruct"
 
